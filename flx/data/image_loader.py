@@ -1,15 +1,14 @@
-from abc import abstractstaticmethod
+from abc import abstractmethod
 
-# import wsq  # needed for loading nist sd 14 dataset
+import cv2
 import torch
 import torchvision.transforms.functional as VTF
-import cv2
 
+from flx.data.dataset import Identifier, IdentifierSet, DataLoader
+from flx.data.file_index import FileIndex
 from flx.data.image_helpers import (
     pad_and_resize_to_deepprint_input_size,
 )
-from flx.data.dataset import Identifier, IdentifierSet, DataLoader
-from flx.data.file_index import FileIndex
 
 
 class ImageLoader(DataLoader):
@@ -25,15 +24,18 @@ class ImageLoader(DataLoader):
     def get(self, identifier: Identifier) -> torch.Tensor:
         return self._load_image(self._files.get(identifier))
 
-    @abstractstaticmethod
+    @staticmethod
+    @abstractmethod
     def _extension() -> str:
         pass
 
-    @abstractstaticmethod
+    @staticmethod
+    @abstractmethod
     def _file_to_id_fun(subdir: str, filename: str) -> Identifier:
         pass
 
-    @abstractstaticmethod
+    @staticmethod
+    @abstractmethod
     def _load_image(filepath: str) -> torch.Tensor:
         pass
 
@@ -62,7 +64,7 @@ class FVC2004Loader(ImageLoader):
         return ".tif"
 
     @staticmethod
-    def _file_to_id_fun(filename: str) -> Identifier:
+    def _file_to_id_fun(subdir: str, filename: str) -> Identifier:
         # Pattern: <dir>/<subject_id>_<sample_id>.png
         subject_id, impression_id = filename.split("_")
         # We must start indexing at 0 instead of 1 to be compatible with pytorch

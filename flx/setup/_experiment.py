@@ -88,7 +88,7 @@ class Experiment:
         except RuntimeError:
             benchmark = self.load_verification_benchmark()
             matcher = CosineSimilarityMatcher(self.load_embeddings())
-            results = benchmark.run(matcher, save=True)
+            results = benchmark.run(matcher)
             self.save_verification_benchmark_results(results)
             return results
 

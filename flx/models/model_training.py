@@ -147,7 +147,7 @@ def _validate(
     )
 
     matcher = CosineSimilarityMatcher(embeddings)
-    result: VerificationResult = benchmark.run(matcher, save=False)
+    result: VerificationResult = benchmark.run(matcher)
     return result.get_equal_error_rate()
 
 

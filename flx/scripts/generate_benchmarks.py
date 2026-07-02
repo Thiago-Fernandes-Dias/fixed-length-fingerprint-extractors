@@ -16,8 +16,9 @@ from flx.data.dataset import Identifier
 from flx.data.image_loader import MCYTCapacitiveLoader, MCYTOpticalLoader
 from flx.benchmarks.biometric_comparison import BiometricComparison
 from flx.benchmarks.biometric_search import ExhaustiveSearch
-from flx.benchmarks.verification import VerificationBenchmark
+from flx.benchmarks.verification import VerificationBenchmark, VerificationGalleryBenchmark
 from flx.benchmarks.identification import IdentificationBenchmark
+from flx.benchmarks.biometric_comparison import BiometricGalleryComparison
 from flx.setup.paths import get_fingerprint_dataset_path
 
 
@@ -232,6 +233,52 @@ def make_benchmarks_mcyt():
         "mcyt330_capacitive",
         capacitive_subjects,
         list(range(12)),
+    )
+
+
+def create_verification_gallery_query_benchmark(
+    subjects: list[int],
+    gallery_impressions: list[int],
+    query_impressions: list[int],
+) -> VerificationGalleryBenchmark:
+    """
+    Creates a verification benchmark with gallery/query split.
+
+    For each query image, compares against all gallery images of the same subject (mated)
+    and against gallery images of other subjects (non-mated), taking the maximum
+    similarity per (query, gallery_subject) pair.
+
+    Non-mated comparisons: for each query image, randomly samples
+    `len(gallery_impressions)` other subjects and compares against their full gallery set.
+    """
+    random.seed(3984)
+
+    gallery_by_subject: dict[int, list[Identifier]] = {
+        s: [Identifier(s, i) for i in gallery_impressions] for s in subjects
+    }
+
+    comps_mated: list[BiometricGalleryComparison] = []
+    for s in subjects:
+        for q_imp in query_impressions:
+            comps_mated.append(
+                BiometricGalleryComparison(Identifier(s, q_imp), s)
+            )
+
+    comps_non_mated: list[BiometricGalleryComparison] = []
+    for query_subject in tqdm.tqdm(subjects):
+        other_subjects = [s for s in subjects if s != query_subject]
+        n_samples = min(len(gallery_impressions), len(other_subjects))
+        selected_subjects = random.sample(other_subjects, n_samples)
+        for q_imp in query_impressions:
+            for gallery_subject in selected_subjects:
+                comps_non_mated.append(
+                    BiometricGalleryComparison(
+                        Identifier(query_subject, q_imp), gallery_subject
+                    )
+                )
+
+    return VerificationGalleryBenchmark(
+        comps_mated + comps_non_mated, gallery_by_subject
     )
 
 

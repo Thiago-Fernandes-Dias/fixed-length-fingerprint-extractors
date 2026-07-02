@@ -25,6 +25,19 @@ class BiometricComparisonResult:
         return f"BiometricComparisonResult({self.comparison.sample1}, {self.comparison.sample2}, {self.similarity})"
 
 
+class BiometricGalleryComparison:
+    def __init__(self, query_sample: Identifier, gallery_subject: int):
+        self.query_sample: Identifier = query_sample
+        self.gallery_subject: int = gallery_subject
+
+    @property
+    def mated(self) -> bool:
+        return self.query_sample.subject == self.gallery_subject
+
+    def __str__(self) -> str:
+        return f"BiometricGalleryComparison({self.query_sample}, gallery_subject={self.gallery_subject})"
+
+
 def biometric_comparisons_to_json(comparisons: list[BiometricComparison]) -> None:
     return {
         "array_sample1": Identifier.ids_to_json([comp.sample1 for comp in comparisons]),

@@ -12,14 +12,14 @@ from flx.extractor.fixed_length_extractor import (
     get_DeepPrint_TexMinu,
 )
 from flx.image_processing.binarization import LazilyAllocatedBinarizer
-from flx.scripts.generate_benchmarks import create_verification_benchmark
+from flx.scripts.generate_benchmarks import create_verification_gallery_query_benchmark
 import matplotlib.pyplot as plt
 import numpy as np
 
 logging.basicConfig(level=logging.INFO)
 
 
-def run_benchmark(ex: DeepPrintExtractor, db_path: str, subjects: list[int], impressions_per_subject: int):
+def run_benchmark(ex: DeepPrintExtractor, db_path: str, subjects: list[int], gallery_impressions: list[int], query_impressions: list[int]):
     image_loader = TransformedImageLoader(
         images=FVC2004Loader(db_path),
         poses=None,
@@ -32,18 +32,19 @@ def run_benchmark(ex: DeepPrintExtractor, db_path: str, subjects: list[int], imp
     test_dataset: Dataset = Dataset(image_loader, image_loader.ids)
     tex_embeddings, minutia_embeddings = ex.extract(test_dataset)
 
-    benchmark = create_verification_benchmark(
+    benchmark = create_verification_gallery_query_benchmark(
         subjects=subjects,
-        impressions_per_subject=list(range(impressions_per_subject))
+        gallery_impressions=gallery_impressions,
+        query_impressions=query_impressions,
     )
 
     matcher = CosineSimilarityMatcher(
         EmbeddingLoader.combine(tex_embeddings, minutia_embeddings)
     )
 
-    results = benchmark.run(matcher)
+    benchmark_result = benchmark.run(matcher)
 
-    return results
+    return benchmark_result
 
 
 def generate_graph(thresholds, fmr, fnmr, name):
@@ -69,15 +70,16 @@ def main():
     base_path = "datasets/FVC/FVC2004/Dbs/"
     a_subjects = list(range(100))
     b_subjects = list(range(101, 110))
-    impressions_per_subject = 8
-    db1_a_result = run_benchmark(deep_print_tex_extractor, base_path + "DB1_A", a_subjects, impressions_per_subject)
-    db1_b_result = run_benchmark(deep_print_tex_extractor, base_path + "DB1_B", b_subjects, impressions_per_subject)
-    db2_a_result = run_benchmark(deep_print_tex_extractor, base_path + "DB2_A", a_subjects, impressions_per_subject)
-    db2_b_result = run_benchmark(deep_print_tex_extractor, base_path + "DB2_B", b_subjects, impressions_per_subject)
-    db3_a_result = run_benchmark(deep_print_tex_extractor, base_path + "DB3_A", a_subjects, impressions_per_subject)
-    db3_b_result = run_benchmark(deep_print_tex_extractor, base_path + "DB3_B", b_subjects, impressions_per_subject)
-    db4_a_result = run_benchmark(deep_print_tex_extractor, base_path + "DB4_A", a_subjects, impressions_per_subject)
-    db4_b_result = run_benchmark(deep_print_tex_extractor, base_path + "DB4_B", b_subjects, impressions_per_subject)
+    gallery_impressions = list(range(0, 4))
+    query_impressions = list(range(4, 8))
+    db1_a_result = run_benchmark(deep_print_tex_extractor, base_path + "DB1_A", a_subjects, gallery_impressions, query_impressions)
+    db1_b_result = run_benchmark(deep_print_tex_extractor, base_path + "DB1_B", b_subjects, gallery_impressions, query_impressions)
+    db2_a_result = run_benchmark(deep_print_tex_extractor, base_path + "DB2_A", a_subjects, gallery_impressions, query_impressions)
+    db2_b_result = run_benchmark(deep_print_tex_extractor, base_path + "DB2_B", b_subjects, gallery_impressions, query_impressions)
+    db3_a_result = run_benchmark(deep_print_tex_extractor, base_path + "DB3_A", a_subjects, gallery_impressions, query_impressions)
+    db3_b_result = run_benchmark(deep_print_tex_extractor, base_path + "DB3_B", b_subjects, gallery_impressions, query_impressions)
+    db4_a_result = run_benchmark(deep_print_tex_extractor, base_path + "DB4_A", a_subjects, gallery_impressions, query_impressions)
+    db4_b_result = run_benchmark(deep_print_tex_extractor, base_path + "DB4_B", b_subjects, gallery_impressions, query_impressions)
 
     # Show ERR
     print(f"db1_a_results: EER: {db1_a_result.get_equal_error_rate()}")

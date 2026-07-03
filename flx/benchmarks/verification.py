@@ -1,4 +1,5 @@
 import os
+import csv
 import json
 
 import tqdm
@@ -7,12 +8,14 @@ import numpy as np
 from flx.benchmarks.matchers import BiometricMatcher
 from flx.benchmarks.biometric_comparison import (
     BiometricComparison,
+    BiometricGalleryComparison,
     BiometricComparisonResult,
     biometric_comparisons_to_json,
     biometric_comparisons_from_json,
     biometric_comparison_results_to_json,
     biometric_comparison_results_from_json,
 )
+from flx.data.dataset import Identifier
 
 
 class VerificationResult:
@@ -98,6 +101,20 @@ class VerificationResult:
         with open(path, "w") as f:
             json.dump(jsn, f)
 
+    def to_csv(self, path: str) -> None:
+        with open(path, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["user_1", "impression_1", "user_2", "impression_2", "score"])
+            all_results = self._mated_comparisons + self._non_mated_comparisons
+            for idx, res in enumerate(all_results):
+                writer.writerow([
+                    res.comparison.sample1.subject,
+                    res.comparison.sample1.impression,
+                    res.comparison.sample2.subject,
+                    res.comparison.sample2.impression,
+                    res.similarity,
+                ])
+
     @staticmethod
     def load(path: str) -> "VerificationResult":
         if not os.path.exists(path):
@@ -129,3 +146,26 @@ class VerificationBenchmark:
             jsn = json.load(f)
         comparisons = biometric_comparisons_from_json(jsn)
         return VerificationBenchmark(comparisons)
+
+
+class VerificationGalleryBenchmark:
+    def __init__(
+        self,
+        gallery_comparisons: list[BiometricGalleryComparison],
+        gallery_by_subject: dict[int, list[Identifier]],
+    ):
+        self._comparisons: list[BiometricGalleryComparison] = gallery_comparisons
+        self._gallery: dict[int, list[Identifier]] = gallery_by_subject
+
+    def run(self, matcher: BiometricMatcher) -> VerificationResult:
+        results: list[BiometricComparisonResult] = []
+        for comp in tqdm.tqdm(self._comparisons):
+            gallery_samples = self._gallery[comp.gallery_subject]
+            max_similarity = max(
+                matcher.similarity(comp.query_sample, g) for g in gallery_samples
+            )
+            bc = BiometricComparison(
+                comp.query_sample, gallery_samples[0]
+            )
+            results.append(BiometricComparisonResult(bc, max_similarity))
+        return VerificationResult(results)

@@ -63,11 +63,16 @@ class DeepPrintExtractor:
 
     def load_best_model(self, model_dir: str) -> None:
         model_path = get_best_model_file(model_dir)
+        self.load_model(model_path)
+    
+    def load_model(self, model_path: str) -> None:
         if exists(model_path):
-            print(f"Loaded best model from {model_path}")
+            print(f"Loaded model from {model_path}")
             load_model_parameters(model_path, self.model, None, None)
         else:
             print(f"No best model file found at {model_path}")
+            
+
 
 
 def get_DeepPrint_Tex(

@@ -135,3 +135,28 @@ class NistSD4Dataset(ImageLoader):
     def _load_image(filepath: str) -> torch.Tensor:
         img = cv2.imread(filepath, cv2.IMREAD_GRAYSCALE)
         return pad_and_resize_to_deepprint_input_size(img, fill=1.0)
+
+
+class DirectoryImageLoader(ImageLoader):
+    """
+    Generic directory loader supporting flexible extensions (.tif, .png, .bmp, .jpg)
+    and parsing filenames of form <subject>_<impression>.
+    """
+    def __init__(self, root_dir: str, extension: str = ".tif"):
+        self._ext = extension if extension.startswith(".") else "." + extension
+        super().__init__(root_dir)
+
+    def _extension(self) -> str:
+        return getattr(self, "_ext", ".tif")
+
+    @staticmethod
+    def _file_to_id_fun(subdir: str, filename: str) -> Identifier:
+        parts = filename.split("_")
+        subject_id = int(parts[0]) - 1
+        impression_id = int(parts[1]) - 1
+        return Identifier(subject_id, impression_id)
+
+    @staticmethod
+    def _load_image(filepath: str):
+        return cv2.imread(filepath, cv2.IMREAD_GRAYSCALE)
+

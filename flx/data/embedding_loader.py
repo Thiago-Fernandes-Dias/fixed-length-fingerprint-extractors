@@ -81,3 +81,35 @@ class EmbeddingLoader(DataLoader):
             assert ds1 is not None
             return ds1
         return EmbeddingLoader.combine(ds1, ds2)
+
+
+class FLAREEmbeddingLoader(DataLoader):
+    """
+    DataLoader for FLARE descriptors: feature matrices and foreground masks per Identifier.
+    Supports single representation per sample [N, D] or multi-combination representations [N, K, D].
+    """
+    def __init__(self, identifiers: IdentifierSet, features: np.ndarray, masks: np.ndarray):
+        assert len(identifiers) == features.shape[0] == masks.shape[0]
+        self._id_to_idx = {id: idx for idx, id in enumerate(identifiers)}
+        self._features = features
+        self._masks = masks
+
+    @property
+    def ids(self) -> IdentifierSet:
+        return IdentifierSet(list(self._id_to_idx.keys()))
+
+    def get(self, id: Identifier) -> tuple[np.ndarray, np.ndarray]:
+        idx = self._id_to_idx[id]
+        return self._features[idx], self._masks[idx]
+
+    @property
+    def features(self) -> np.ndarray:
+        return self._features
+
+    @property
+    def masks(self) -> np.ndarray:
+        return self._masks
+
+    @property
+    def is_multi_combination(self) -> bool:
+        return self._features.ndim == 3

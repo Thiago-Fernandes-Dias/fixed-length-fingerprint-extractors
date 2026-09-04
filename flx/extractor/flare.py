@@ -143,13 +143,19 @@ class FLAREExtractor:
         ndim_feat: int = 6,
         input_norm: bool = False,
         tar_shape: tuple[int, int] = (256, 256),
-        batch_size: int = 16,
+        middle_shape: tuple[int, int] = (512, 512),
+        batch_size: int = 32,
         device: str = "cuda",
         pose_estimator: FLAREPoseEstimator | None = None,
         enhancer: FLAREEnhancer | None = None,
     ):
         self.model_path = model_path
+        self.ndim_feat = ndim_feat
+        self.input_norm = input_norm
+        self.tar_shape = tar_shape
+        self.middle_shape = middle_shape
         self.batch_size = batch_size
+
         self.device_str = device if torch.cuda.is_available() and "cuda" in device else "cpu"
         self.device = torch.device(self.device_str)
         self.pose_estimator = pose_estimator
@@ -190,7 +196,12 @@ class FLAREExtractor:
                     aligned_imgs = []
                     for i in range(img.shape[0]):
                         pose = self.pose_estimator.predict_pose(img[i])
-                        aligned = flare_image_transform(img[i], pose_2d=pose)
+                        aligned = flare_image_transform(
+                            img[i],
+                            tar_shape=self.tar_shape,
+                            middle_shape=self.middle_shape,
+                            pose_2d=pose,
+                        )
                         aligned_imgs.append(aligned)
                     img = torch.stack(aligned_imgs).to(self.device)
 
@@ -222,11 +233,15 @@ class FLAREFullPipeline:
         regression_pose_path: str = "../FLARE/model_weights/RegressionPose.pth",
         priorenh_dir: str = "../FLARE_ENH/pretrained_model/priorenh",
         unetenh_path: str = "../FLARE_ENH/pretrained_model/unetenh/unetenh.pth",
+        tar_shape: tuple[int, int] = (256, 256),
+        middle_shape: tuple[int, int] = (512, 512),
         device: str = "cuda",
-        batch_size: int = 16,
+        batch_size: int = 32,
     ):
         self.device_str = device if torch.cuda.is_available() and "cuda" in device else "cpu"
         self.device = torch.device(self.device_str)
+        self.tar_shape = tar_shape
+        self.middle_shape = middle_shape
         self.batch_size = batch_size
 
         # 2 Pose Estimators
@@ -238,7 +253,13 @@ class FLAREFullPipeline:
         self.enh_unet = FLAREEnhancer(method="UNetEnh", model_path=unetenh_path, device=device)
 
         # 1 FDRN Descriptor Extractor
-        self.extractor = FLAREExtractor(model_path=desc_model_path, device=device)
+        self.extractor = FLAREExtractor(
+            model_path=desc_model_path,
+            tar_shape=tar_shape,
+            middle_shape=middle_shape,
+            batch_size=batch_size,
+            device=device,
+        )
 
     def extract(self, dataset: Dataset) -> FLAREEmbeddingLoader:
         self.extractor.model.eval()
@@ -267,8 +288,18 @@ class FLAREFullPipeline:
                     pose0 = self.pose_voting.predict_pose(img)
                     pose1 = self.pose_regression.predict_pose(img)
 
-                    aligned0 = flare_image_transform(img, pose_2d=pose0).to(self.device)
-                    aligned1 = flare_image_transform(img, pose_2d=pose1).to(self.device)
+                    aligned0 = flare_image_transform(
+                        img,
+                        tar_shape=self.tar_shape,
+                        middle_shape=self.middle_shape,
+                        pose_2d=pose0,
+                    ).to(self.device)
+                    aligned1 = flare_image_transform(
+                        img,
+                        tar_shape=self.tar_shape,
+                        middle_shape=self.middle_shape,
+                        pose_2d=pose1,
+                    ).to(self.device)
 
                     # 2. Four Enhanced Images (2 Poses x 2 Enhancers)
                     # Comb 0: Pose 0 + PriorEnh

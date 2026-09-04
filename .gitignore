@@ -102,3 +102,5 @@ notebooks/DET_curve*
 .mypy_cache/
 
 biometrics_venv
+
+pretrained_models/

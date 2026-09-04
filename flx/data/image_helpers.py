@@ -96,7 +96,7 @@ def coarse_center(img: np.ndarray, img_ppi: int = 500) -> np.ndarray:
 def flare_image_transform(
     img: np.ndarray | torch.Tensor,
     tar_shape: tuple[int, int] = (256, 256),
-    middle_shape: tuple[int, int] = (256, 256),
+    middle_shape: tuple[int, int] = (512, 512),
     pose_2d: np.ndarray | None = None,
 ) -> torch.Tensor:
     """

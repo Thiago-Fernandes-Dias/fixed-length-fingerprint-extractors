@@ -5,6 +5,16 @@ import numpy as np
 from flx.data.dataset import Identifier
 from flx.data.embedding_loader import EmbeddingLoader, FLAREEmbeddingLoader
 
+DEEPPRINT_MINIMUM_SCORE = -2.0
+DEEPPRINT_MAXIMUM_SCORE = 2.0
+DEEPPRINT_MIN_SCORE = DEEPPRINT_MINIMUM_SCORE
+DEEPPRINT_MAX_SCORE = DEEPPRINT_MAXIMUM_SCORE
+
+FLARE_MINIMUM_SCORE = -1.0
+FLARE_MAXIMUM_SCORE = 1.0
+FLARE_MIN_SCORE = FLARE_MINIMUM_SCORE
+FLARE_MAX_SCORE = FLARE_MAXIMUM_SCORE
+
 
 class BiometricMatcher(ABC):
     @abstractmethod
@@ -29,6 +39,9 @@ class VectorizedMatcher(BiometricMatcher):
 
 
 class CosineSimilarityMatcher(VectorizedMatcher):
+    MINIMUM_SCORE = DEEPPRINT_MINIMUM_SCORE
+    MAXIMUM_SCORE = DEEPPRINT_MAXIMUM_SCORE
+
     def __init__(self, embedding_dataset: EmbeddingLoader):
         self._embeddings = embedding_dataset
         self._matrix = None
@@ -36,7 +49,11 @@ class CosineSimilarityMatcher(VectorizedMatcher):
     def similarity(self, sample1: Identifier, sample2: Identifier) -> float:
         emb1 = self._embeddings.get(sample1)
         emb2 = self._embeddings.get(sample2)
-        return np.dot(emb1, emb2)
+        raw_score = float(np.dot(emb1, emb2))
+        normalized_score = (raw_score - DEEPPRINT_MINIMUM_SCORE) / (
+            DEEPPRINT_MAXIMUM_SCORE - DEEPPRINT_MINIMUM_SCORE
+        )
+        return float(np.clip(normalized_score, 0.0, 1.0))
 
     def preload_vectorized(self, samples: list[Identifier]) -> None:
         """
@@ -50,10 +67,12 @@ class CosineSimilarityMatcher(VectorizedMatcher):
         Similarities for all the items in the preloaded vector.
         """
         emb = self._embeddings.get(sample)
-        vals = np.matmul(self._matrix, emb.vector)
-        # Negative similarity makes no sense, as a fingerprint does not have an opposite
-        vals[vals < 0] = 0
-        return vals
+        vector = emb.vector if hasattr(emb, "vector") else emb
+        raw_vals = np.matmul(self._matrix, vector)
+        normalized_vals = (raw_vals - DEEPPRINT_MINIMUM_SCORE) / (
+            DEEPPRINT_MAXIMUM_SCORE - DEEPPRINT_MINIMUM_SCORE
+        )
+        return np.clip(normalized_vals, 0.0, 1.0)
 
 
 def calculate_flare_score(
@@ -108,6 +127,9 @@ class FLAREMatcher(BiometricMatcher):
     Computes masked cosine similarity score as defined in the official FLARE model (IEEE TIFS 2026).
     Supports single representation or multi-combination representations taking max similarity score across combinations.
     """
+    MINIMUM_SCORE = FLARE_MINIMUM_SCORE
+    MAXIMUM_SCORE = FLARE_MAXIMUM_SCORE
+
     def __init__(self, embeddings: FLAREEmbeddingLoader, ndim_feat: int = 12, binary: bool = False):
         self._embeddings = embeddings
         self._ndim_feat = ndim_feat
@@ -128,13 +150,21 @@ class FLAREMatcher(BiometricMatcher):
                 sc_mat = calculate_flare_score(
                     feat1[k], feat2[k], mask1[k], mask2[k], ndim_feat=self._ndim_feat, binary=self._binary
                 )
-                scores.append(float(sc_mat[0, 0]))
+                raw_score = float(sc_mat[0, 0])
+                normalized_score = (raw_score - FLARE_MINIMUM_SCORE) / (
+                    FLARE_MAXIMUM_SCORE - FLARE_MINIMUM_SCORE
+                )
+                scores.append(float(np.clip(normalized_score, 0.0, 1.0)))
             score = max(scores)
         else:
             score_mat = calculate_flare_score(
                 feat1, feat2, mask1, mask2, ndim_feat=self._ndim_feat, binary=self._binary
             )
-            score = float(score_mat[0, 0])
+            raw_score = float(score_mat[0, 0])
+            normalized_score = (raw_score - FLARE_MINIMUM_SCORE) / (
+                FLARE_MAXIMUM_SCORE - FLARE_MINIMUM_SCORE
+            )
+            score = float(np.clip(normalized_score, 0.0, 1.0))
 
         return score
 
@@ -175,6 +205,12 @@ class FLAREMatcher(BiometricMatcher):
             score_matrix = calculate_flare_score(
                 feats1, feats2, masks1, masks2, ndim_feat=self._ndim_feat, binary=self._binary
             )
+
+        score_matrix = np.clip(
+            (score_matrix - FLARE_MINIMUM_SCORE) / (FLARE_MAXIMUM_SCORE - FLARE_MINIMUM_SCORE),
+            0.0,
+            1.0,
+        )
 
         for c in comparisons:
             i1 = s1_indices[c.sample1]

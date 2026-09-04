@@ -100,12 +100,27 @@ class VerificationResult:
         with open(path, "w") as f:
             json.dump(jsn, f)
 
+    def to_dataframe(self):
+        import pandas as pd
+
+        all_results = self._mated_comparisons + self._non_mated_comparisons
+        return pd.DataFrame({
+            "user_1": [res.comparison.sample1.subject for res in all_results],
+            "impression_1": [res.comparison.sample1.impression for res in all_results],
+            "user_2": [res.comparison.sample2.subject for res in all_results],
+            "impression_2": [res.comparison.sample2.impression for res in all_results],
+            "score": [res.similarity for res in all_results],
+        })
+
     def to_csv(self, path: str) -> None:
-        with open(path, "x", newline="") as f:
+        parent_directory = os.path.dirname(os.path.abspath(path))
+        if parent_directory:
+            os.makedirs(parent_directory, exist_ok=True)
+        with open(path, "w", newline="") as f:
             writer = csv.writer(f)
             writer.writerow(["user_1", "impression_1", "user_2", "impression_2", "score"])
             all_results = self._mated_comparisons + self._non_mated_comparisons
-            for idx, res in enumerate(all_results):
+            for res in all_results:
                 writer.writerow([
                     res.comparison.sample1.subject,
                     res.comparison.sample1.impression,
@@ -113,6 +128,21 @@ class VerificationResult:
                     res.comparison.sample2.impression,
                     res.similarity,
                 ])
+
+    def to_parquet(self, path: str, **kwargs) -> None:
+        parent_directory = os.path.dirname(os.path.abspath(path))
+        if parent_directory:
+            os.makedirs(parent_directory, exist_ok=True)
+        dataframe = self.to_dataframe()
+        dataframe.to_parquet(path, index=False, **kwargs)
+
+    def save_scores(self, path: str, **kwargs) -> None:
+        if path.endswith(".parquet"):
+            self.to_parquet(path, **kwargs)
+        elif path.endswith(".csv"):
+            self.to_csv(path)
+        else:
+            raise ValueError(f"Unsupported file format for '{path}'. Expected .parquet or .csv")
 
     @staticmethod
     def load(path: str) -> "VerificationResult":

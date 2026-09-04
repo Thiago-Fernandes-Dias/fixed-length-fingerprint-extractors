@@ -70,7 +70,7 @@ def main():
         device="cuda",
     )
 
-    for db_path, results_csv, subjects in FOLDERS:
+    for db_path, results_path, subjects in FOLDERS:
         if not os.path.exists(db_path):
             logging.info(f"Skipping non-existent dataset path: {db_path}")
             continue
@@ -82,9 +82,8 @@ def main():
             GALLERY_IMPRESSIONS,
             QUERY_IMPRESSIONS,
         )
-        os.makedirs(os.path.dirname(results_csv), exist_ok=True)
-        result.to_csv(results_csv)
-        logging.info(f"Saved FLARE benchmark results to: {results_csv}")
+        result.save_scores(results_path)
+        logging.info(f"Saved FLARE benchmark results to: {results_path}")
 
 
 if __name__ == "__main__":

@@ -81,3 +81,59 @@ class EmbeddingLoader(DataLoader):
             assert ds1 is not None
             return ds1
         return EmbeddingLoader.combine(ds1, ds2)
+
+
+class FLAREEmbeddingLoader(DataLoader):
+    """
+    DataLoader for FLARE descriptors: feature matrices and foreground masks per Identifier.
+    Supports single representation per sample [N, D] or multi-combination representations [N, K, D],
+    and optional pose parameters per sample/combination [N, 3] or [N, K, 3].
+    """
+    def __init__(
+        self,
+        identifiers: IdentifierSet,
+        features: np.ndarray,
+        masks: np.ndarray,
+        poses: np.ndarray | None = None,
+    ):
+        assert len(identifiers) == features.shape[0] == masks.shape[0]
+        if poses is not None:
+            assert len(identifiers) == poses.shape[0]
+        self._id_to_idx = {id: idx for idx, id in enumerate(identifiers)}
+        self._features = features
+        self._masks = masks
+        self._poses = poses
+
+    @property
+    def ids(self) -> IdentifierSet:
+        return IdentifierSet(list(self._id_to_idx.keys()))
+
+    def get(self, id: Identifier) -> tuple[np.ndarray, np.ndarray]:
+        idx = self._id_to_idx[id]
+        return self._features[idx], self._masks[idx]
+
+    def get_pose(self, id: Identifier) -> np.ndarray | None:
+        if self._poses is None:
+            return None
+        idx = self._id_to_idx[id]
+        return self._poses[idx]
+
+    @property
+    def features(self) -> np.ndarray:
+        return self._features
+
+    @property
+    def masks(self) -> np.ndarray:
+        return self._masks
+
+    @property
+    def poses(self) -> np.ndarray | None:
+        return self._poses
+
+    @property
+    def has_poses(self) -> bool:
+        return self._poses is not None
+
+    @property
+    def is_multi_combination(self) -> bool:
+        return self._features.ndim == 3

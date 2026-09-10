@@ -1,174 +1,295 @@
-# flx: Fixed-length fingerprint representation extractor
+# flx: Fixed-Length Fingerprint Representation Extractors
 
-Refactored code used in the paper "Benchmarking fixed-length Fingerprint Representations across different Embedding Sizes and Sensor Types" (BIOSIG 2023, Rohwedder et al.). A summary of the paper can be found at the end of this README.
+Benchmarking and evaluation framework for Deep Learning-based fixed-length fingerprint representation extractors across different embedding sizes, sensor types, and alignment/enhancement pipelines.
 
-It contains an implementation of [DeepPrint](https://arxiv.org/abs/1909.09901), a Deep Learning based fixed-length Fingerprint Representation extractor, and various experiments with this architecture.
+This repository integrates two state-of-the-art fixed-length fingerprint representation architectures:
+1. **DeepPrint** — Texture- and minutiae-based fixed-length fingerprint extractor (Engelsma et al., IEEE TPAMI 2021; benchmarked in Rohwedder et al., BIOSIG 2023).
+2. **FLARE** — Fixed-Length Dense Fingerprint Representation with dual-strategy pose-aware alignment (Voting & Regression) and dual-model enhancement (UNetEnh & PriorEnh) (Pan et al., IEEE TIFS 2026 / WIFS 2024).
 
-Using the `flx` package
-------------
+## Installation & Setup
 
-### Installation
+The framework requires **Python 3.9+** and PyTorch.
 
-To install the package, clone the repository and run `pip install -e .` in the root directory of the repository.
+1. Clone the repository and install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-The package requires Python 3.9 or higher. Other dependencies are listed in the `requirements.txt` file. Install them with
+2. Install `flx` in editable mode:
+   ```bash
+   pip install -e .
+   ```
 
-```pip install -r requirements.txt```
+For detailed guides and code examples for each module, refer to [TUTORIALS.md](TUTORIALS.md).
 
-### Usage
+---
 
-You can import modules from the `flx` package in your own scripts and use them to train models, generate embeddings and run benchmarks.
+## 📥 Pre-trained Models & Directory Layout
 
-To learn how to add your own dataset to the package, see the [dataset tutorial notebook](notebooks/dataset_tutorial.ipynb).
+Pre-trained weights for both DeepPrint and FLARE should be placed inside the `pretrained_models/` directory according to the following layout:
 
-To learn how to train a variant of the DeepPrint model on a small example dataset, see the [training example notebook](notebooks/model_training_tutorial.ipynb).
+```text
+pretrained_models/
+├── deepprint/
+│   └── deepprint_texminu_512.pyt        # DeepPrint (Texture + Minutiae, 512-dim)
+└── flare/
+    ├── desc/
+    │   └── desc_model.pth.tar           # FDD Dense Descriptor Extractor
+    ├── pose/
+    │   ├── VotingPose.pth               # Voting-based Pose Estimator (GRIDNET4)
+    │   └── RegressionPose.pth           # Regression-based Pose Estimator (Single)
+    └── enhancement/
+        ├── unetenh/
+        │   └── unetenh.pth              # UNet-based Enhancement (SqueezeUNet)
+        └── priorenh/
+            ├── Prior.ckpt               # Prior codebook checkpoint
+            ├── priorenh.pth             # Prior-guided Enhancement (VQFPEnhancer)
+            └── vq.yaml                  # PriorEnh configuration
+```
 
-To learn how to extract embeddings from a dataset using a trained model, see the [embedding extraction tutorial notebook](notebooks/embedding_extraction_tutorial.ipynb).
+### Download Links
 
-### Pre-trained model
+| Model | Architecture / Purpose | File Name | Destination Path | Download Link |
+| :--- | :--- | :--- | :--- | :--- |
+| **DeepPrint (512)** | Texture + Minutiae representation | `deepprint_texminu_512.pyt` | `pretrained_models/deepprint/` | [Google Drive Folder](https://drive.google.com/drive/folders/1vV2skXApZMhqWTlF2j_qgXDxRYan5U1f?usp=drive_link) |
+| **FLARE FDD** | Fixed-length Dense Descriptor (FDD) | `desc_model.pth.tar` | `pretrained_models/flare/desc/` | [Google Drive File](https://drive.google.com/file/d/1zvAI57L0TDC7q6kQgNh5_DwSbicjJ4hs/view?usp=drive_link) |
+| **VotingPose** | Voting-based alignment network | `VotingPose.pth` | `pretrained_models/flare/pose/` | [Google Drive File](https://drive.google.com/file/d/1Zg4duNJ8mg-fkTACTzpPPK7DgNb9NRvA/view?usp=drive_link) |
+| **RegressionPose** | Regression-based alignment network | `RegressionPose.pth` | `pretrained_models/flare/pose/` | [Google Drive File](https://drive.google.com/file/d/1AXpN8GBSqhlIXDilqPLfZf9n4Dc0pEpj/view?usp=drive_link) |
+| **UNetEnh** | SqueezeUNet fingerprint enhancer | `unetenh.pth` | `pretrained_models/flare/enhancement/unetenh/` | [Google Drive File](https://drive.google.com/file/d/1U0uP8XoxWc90IPlEGnt2KIe0ATAA2VKl/view?usp=drive_link) |
+| **PriorEnh** | Prior-guided ridge enhancer | `priorenh.pth` | `pretrained_models/flare/enhancement/priorenh/` | [Google Drive File](https://drive.google.com/file/d/1h3JD6ZhS_TUaCmBhINqKZ0Pb1ad-FRao/view?usp=drive_link) |
+| **Prior Codebook** | Ridge prior latent codebook | `Prior.ckpt` | `pretrained_models/flare/enhancement/priorenh/` | [Google Drive File](https://drive.google.com/file/d/14c0A4qRo_lrqa83e-_UpBvu79qEGkK5q/view?usp=drive_link) |
 
-The model for an embedding size of 512 can be found under the link
-[Google Drive](https://drive.google.com/drive/folders/1vV2skXApZMhqWTlF2j_qgXDxRYan5U1f?usp=drive_link)
+> **Note:** The scripts also accept checkpoints located directly under `../FLARE/model_weights/` and `../FLARE_ENH/pretrained_model/` when experimenting with adjacent clones of the official repositories.
 
-Project Organization
-------------
+---
 
-    ├── LICENSE
-    ├── README.md          <- The top-level README for developers using this project.
-    ├── requirements.txt   <- The requirements file for reproducing the analysis environment
-    ├── setup.py           <- makes project pip installable (pip install -e .) so you can  `import flx. ...`
-    ├── figures            <- Figures for the README
-    ├── models             <- Trained and serialized models, training logs
-    ├── notebooks          <- Jupyter notebooks for tutorials and examples
-    ├── tests              <- Some unit tests for the package. Run with `pytest`.
-    │
-    ├── data
-    │   ├── benchmarks     <- Folder for the benchmark specifications (i.e. which comparisons to run)
-    │   ├── poses          <- Folder for poses of a corresponding fingerprint dataset.
-    │   ├── embeddings     <- Output folder for fingerprint embeddings.
-    │   └── fingerprints   <- Folder with fingerprint datasets.
-    │
-    ├── reports            <- Contains folders with the full benchmark results of all trained models
-    │   ├── ...            <- Output folders for the benchmark results (in .json format) are here.
-    │   └── figures        <- Generated graphics and figures to be used in reporting
-    │
-    └── flx                <- Source code for use in this project.
-        │
-        ├── benchmarks     <- Implementation of biometric performance benchmarks (verification, identification)
-        ├── data           <- Code to manage datasets of fingerprints, poses, embeddings etc.
-        ├── extractor      <- Embedding extraction code using the DeepPrint model
-        ├── models         <- DeepPrint model architectures, loss functions and pytorch code for training
-        ├── preprocessing  <- Data augmentation and contrast enhancement
-        ├── reweighting    <- Code to reweight embedding dimensions after extraction
-        ├── scripts        <- Different scripts for running benchmarks, generating embeddings etc.
-        ├── setup          <- Settings, predefined models and datasets are defined here. This allows to easily benchmark different models and datasets.
-        └── visualization  <- Contains functions for visualization and graphical debugging
-     
---------
+## Model Architectures
 
-### Credit to other authors:
+### 1. DeepPrint (BIOSIG 2023 / TPAMI 2021)
 
-- Remi Cadene; Inception v4 pytorch implementation (see `flx/models/Inceptionv4.py`); https://github.com/Cadene/pretrained-models.pytorch
+![DeepPrint Architecture](figures/conceptual-overview-deepprint.png)
 
-- Dong Chengdong Hang Zhou; iso-19794-2 fingerprint template encoder and decoder (see `flx/data/iso-encoder-decoder`); https://github.com/DongChengdongHangZhou/iso-19794-2-decoder-encoder
+* **Localization Network**: Localizes the fingerprint center and crops it to a normalized canvas ($299 \times 299$).
+* **Inception v4 Stem**: Shared deep convolutional backbone extracting dense textural and spatial representations.
+* **Texture Branch**: Produces a fixed-length textural embedding (e.g., 256 or 512 dimensions).
+* **Minutiae Branch**: Multi-task branch predicting minutiae locations/orientations via minutia maps and producing a fixed-length minutiae embedding.
+* **Matcher**: Cosine similarity over the combined texture and minutiae embeddings (`CosineSimilarityMatcher`).
 
+### 2. FLARE (IEEE TIFS 2026 / WIFS 2024)
 
-Paper: Benchmarking fixed-length Fingerprint Representations across different Embedding Sizes and Sensor Types
-------------
+FLARE provides a dense, fixed-length descriptor (FDD) combined with multi-path pose alignment and multi-path image enhancement:
 
-### Abstract
+1. **Dual Pose Estimation (Alignment)**:
+   * `VotingPose` (`GRIDNET4`): Multi-scale voting network estimating core point $(x, y)$ and rotation angle $\theta$.
+   * `RegressionPose` (`FingerPose_2D_Single`): Direct classification-to-vector regression for $(x, y, \theta)$.
+2. **Dual Image Enhancement**:
+   * `UNetEnh` (`SqueezeUNet`): Direct pixel-to-pixel ridge structure enhancement.
+   * `PriorEnh` (`VQFPEnhancer_PCNN`): Vector-quantized prior network leveraging high-quality codebooks for latent and noisy prints.
+3. **FDRN Descriptor Extractor (`FDD`)**:
+   * Takes normalized $256 \times 256$ inputs (derived from a $512 \times 512$ coordinate frame, scale $= 0.5$).
+   * Dual-branch ResNet backbone extracting texture features (`embedding_t`) and minutiae features (`embedding`), along with a foreground mask (`mask`).
+   * Output: concatenated $12$-channel feature map ($16 \times 16 \times 12 = 3072$ values) and foreground mask ($16 \times 16 = 256$ values).
+4. **4-Combination Max Matching (`FLAREMatcher`)**:
+   * Generates 4 distinct representations per fingerprint: $(2\text{ poses}) \times (2\text{ enhancers})$.
+   * Matches samples using masked cosine similarity (`calculate_flare_score`) across all representation pairs, taking the maximum similarity score.
 
-Traditional minutiae-based fingerprint representations consist of a variable-length set of
-minutiae. This necessitates a more complex comparison causing the drawback of high computational cost in one-to-many comparison. Recently, deep neural networks have been proposed to extract fixed-length embeddings from fingerprints. In this paper, we explore to what extent fingerprint
-texture information contained in such embeddings can be reduced in terms of dimension, while preserving high biometric performance. This is of particular interest, since it would allow to reduce
-the number of operations incurred at comparisons. We also study the impact in terms of recognition
-performance of the fingerprint textural information for two sensor types, i.e. optical and capacitive.
-Furthermore, the impact of rotation and translation of fingerprint images on the extraction of fingerprint embeddings is analysed. Experimental results conducted on a publicly available database reveal an optimal embedding size of 512 feature elements for the texture-based embedding part of fixed-length fingerprint representations. In addition, differences in performance between sensor types can be perceived.
+## Dataset Organization & Image Naming
 
+Datasets must be placed in a directory where image filenames encode the **subject ID** and **impression ID**.
 
+### Expected File Pattern
 
-### Deep Print
+```text
+<subject_id>_<impression_id>.<extension>
+```
 
-![Conceptual overview of fixed-length fingerprint representation extraction](figures/conceptual-overview-deepprint.png)
+* **1-indexed numbering**: Filenames use 1-based indexing for subjects and impressions (e.g. `1_1.tif`, `1_2.tif`, ..., `100_8.tif`).
+* Supported extensions include `.tif`, `.png`, `.bmp`, `.jpg`.
+* The loaders (`DirectoryImageLoader`, `FVC2004Loader`) automatically map these to 0-indexed `Identifier(subject_id - 1, impression_id - 1)` for PyTorch compatibility.
 
-The full DeepPrint model consists of the following components:
- - Localization network: Localizes the fingerprint in the image and crops it to a fixed size. (Not shown in the figure)
- - Inception v4 stem: Processes the fingerprint image and extracts a feature map.
- - Texture-branch: Processes the feature map and extracts a fixed-length fingerprint representation.
- - Minutiae-branch: Processes the feature map and extracts a fixed-length minutiae representation as well as a minutia map. The minutia map is used during training to focus the training on the minutiae regions of the fingerprint. It is not used to create the fixed-length fingerprint representation.
+### Example Dataset Directory
 
-In this project, many smaller variants of the DeepPrint model were examined. In the code, the naming convention is:
+```text
+/path/to/FVC2000/Db1_a/tif/
+├── 1_1.tif      # Subject 1, Impression 1
+├── 1_2.tif      # Subject 1, Impression 2
+├── ...
+├── 1_8.tif      # Subject 1, Impression 8
+├── 2_1.tif      # Subject 2, Impression 1
+└── 100_8.tif    # Subject 100, Impression 8
+```
 
-`DeepPrint_[Loc][Tex][Minu]_<NDIMS>`
+### Gallery vs. Query Splitting
 
-Where `[Loc]` means that the localization network is included, `[Tex]` means that the texture branch is included and `[Minu]` means that the minutiae branch is included. `<NDIMS>` is the dimensionality of the fixed-length fingerprint representation (i.e. the number of neurons in the last linear layer).
+In the verification benchmarks (`create_verification_gallery_query_benchmark`), impressions are partitioned into:
+* **Gallery Impressions**: `range(0, 4)` (first 4 impressions: `_1` to `_4`)
+* **Query Impressions**: `range(4, 8)` (remaining 4 impressions: `_5` to `_8`)
+* **Subjects**: e.g., `A_SUBJECTS = list(range(100))` for set A (100 subjects) or `B_SUBJECTS = list(range(101, 110))` for set B.
 
-### Databases
+---
 
-In the code we do not distinguish between different fingers of one subject and different fingers from separate subjects. Instead, we use the term "subject" to refer a distinct fingerprint. The term "impression" refers to a single sample / capture of a fingerprint. This deviates a bit from the terminology used in the paper. In these terms, the databases used in the paper are:
+## 🚀 Running Experiments
 
-In the paper, a synthetic databases created with the `SFinge` synthetic fingerprint generator were used for training (6000 subjects à 10 impressions) and validation (2000 subjects à 4 impressions).
+### 1. DeepPrint Benchmark (`main_deepprint.py`)
 
-In addition MCYT330 optical and capacitive sensor databases (3300 subjects à 2 sensors à 12 impressions) were used. The first 2000 subjects were used for training and the remaining 1300 subjects were used for testing.
+Runs the DeepPrint verification benchmark across configured datasets and saves result CSVs:
 
-There is also code to load and benchmark for FVC2004 DB1 and SD4 databases. However, these were not used in the paper.
+```bash
+python main_deepprint.py
+```
 
-### Image processing
+**Configuring Datasets in `main_deepprint.py`:**
+```python
+FOLDERS = [
+    ("/path/to/FVC2000/Db1_a/tif", "../results/DeepPrint/fvc_2000_db1_a.csv", A_SUBJECTS),
+    ("/path/to/FVC2002/Db1_a/tif", "../results/DeepPrint/fvc_2002_db1_a.csv", A_SUBJECTS),
+    ("/path/to/FVC2004/Db1_a/tif", "../results/DeepPrint/fvc_2004_db1_a.csv", A_SUBJECTS),
+]
+```
 
-The input size of DeepPrint is 299x299 pixels. How the resizing and cropping is done depends on the source dataset and can be found in the `flx/data/image-loader.py` file.
+### 2. Official FLARE 4-Combination Pipeline (`main_flare.py`)
 
-During training, data augumentation is applied to the fingerprint images. The following augmentations are applied:
+Executes the complete official FLARE pipeline ($2\text{ Poses} \times 2\text{ Enhancers} = 4\text{ Combinations}$ per fingerprint with max-score matching):
 
- - Random rotation between -15° and 15°
- - Random translation of up to 25 pixels in x and y direction
- - Random gain and contrast adjustment (see `flx/setup/datasets.py` -> `QUALITY_AUGMENTATION`)
+```bash
+python main_flare.py
+```
 
-The following preprocessing steps are applied to the fingerprint images before they are fed into the network:
+**Configuring Datasets in `main_flare.py`:**
+```python
+FOLDERS = [
+    ("/path/to/FVC2000/Db1_a/tif", "../results/FLARE/fvc_2000_db1_a.csv", A_SUBJECTS),
+    ("/path/to/FVC2004/Db1_a/tif", "../results/FLARE/fvc_2004_db1_a.csv", A_SUBJECTS),
+]
+```
 
-![Example of a synthetic fingerprint image generated by SFinGe with the respective preprocessing steps](figures/preprocessing-steps.png)
+**Programmatic Pipeline Usage:**
+```python
+from flx.extractor.flare import FLAREFullPipeline
+from flx.benchmarks.matchers import FLAREMatcher
+from flx.data.dataset import Dataset
+from flx.data.image_loader import DirectoryImageLoader
 
-### Training
+pipeline = FLAREFullPipeline(
+    desc_model_path="pretrained_models/flare/desc/desc_model.pth.tar",
+    voting_pose_path="pretrained_models/flare/pose/VotingPose.pth",
+    regression_pose_path="pretrained_models/flare/pose/RegressionPose.pth",
+    priorenh_dir="pretrained_models/flare/enhancement/priorenh",
+    unetenh_path="pretrained_models/flare/enhancement/unetenh/unetenh.pth",
+    device="cuda",
+)
 
-For training the model, the Adam optimizer is used, the optimal learning rate differs between the individual variants. For simpler variants like `DeepPrint_Tex_512` a higher
-learning rate can be chosen to speed up training. For more complex variants like `DeepPrint_LocTexMinu_512` a lower learning rate is necessary to avoid overfitting.
-The number of epochs is chosen based on the validation loss. The training is stopped when the validation loss does not decrease anymore.
+loader = DirectoryImageLoader("/path/to/dataset", extension=".tif")
+dataset = Dataset(loader, loader.ids)
+embeddings = pipeline.extract(dataset)
 
-Depending on the learning rate and model, up to 100 epochs are necessary to train the model. Expect roughly 10-15 minutes per epoch on an A100. As much of the preprocessing
-happens on the CPU, a CPU with at least 8 cores is recommended in order to fully utilize the GPU.
+matcher = FLAREMatcher(embeddings)
+score = matcher.similarity(dataset.ids[0], dataset.ids[1])
+```
 
-### Experiments
+### 3. Single-Combination FLARE Enhancement Benchmark (`main_flare_enh.py`)
 
-#### Embedding size
+Runs a lightweight FLARE pipeline using a single selected pose estimator and enhancement model (e.g. VotingPose + UNetEnh):
 
-Different embedding sizes were compared for the DeepFinger variant with only the texture branch (which has lower computational cost than the full DeepPrint model). The results are shown in the following figure:
+```bash
+python main_flare_enh.py
+```
 
-![Results for different embedding sizes](figures/embedding-sizes-results.png)
+## Benchmark Results
 
-#### Model variants and sensor types
+All benchmark scripts export CSV files into `../results/` containing comprehensive verification metrics:
+* Genuine and impostor comparison scores
+* False Match Rate (FMR) and False Non-Match Rate (FNMR) curves
+* Equal Error Rate (EER) and FMR100 / FMR1000 operating points
 
-Different model variants are compared for optical and capacitive sensor types. The results are shown in the following figure:
+## Project Structure
 
-![Results of different variants](figures/different-variants-results.png)
+```text
+├── LICENSE
+├── README.md                      <- Main documentation
+├── README.old.md                  <- Original BIOSIG 2023 DeepPrint README
+├── TUTORIALS.md                   <- Step-by-step module usage tutorials
+├── requirements.txt               <- Environment dependencies
+├── setup.py                       <- Packaging script (pip install -e .)
+├── main_deepprint.py              <- DeepPrint benchmark entrypoint
+├── main_flare.py                  <- Official FLARE full pipeline entrypoint
+├── main_flare_enh.py              <- FLARE single-enhancement pipeline entrypoint
+├── figures/                       <- Explanatory figures and diagrams
+├── notebooks/                     <- Interactive tutorial notebooks
+├── tests/                         <- Unit and integration tests
+├── pretrained_models/             <- Checkpoint directory for DeepPrint and FLARE
+│   ├── deepprint/
+│   └── flare/
+│       ├── desc/
+│       ├── pose/
+│       └── enhancement/
+├── data/
+│   ├── benchmarks/                <- Verification and identification benchmark JSONs
+│   ├── embeddings/                <- Saved feature embeddings
+│   └── poses/                     <- Precomputed ground-truth poses
+└── flx/                           <- Core Python package
+    ├── benchmarks/                <- Verification, identification, and matchers (FLAREMatcher, CosineSimilarityMatcher)
+    ├── data/                      <- Dataset classes, loaders (DirectoryImageLoader, FVC2004Loader, etc.), image helpers
+    ├── extractor/                 <- DeepPrint and FLARE extractor interfaces, enhancement runners
+    ├── image_processing/          <- Binarization, data augmentations
+    ├── models/                    <- Neural network architectures
+    │   ├── deep_print_arch.py     <- DeepPrint model variants
+    │   ├── enhancement/           <- UNetEnh and PriorEnh network modules
+    │   └── flare/                 <- FDD descriptor, VotingPose (GRIDNET4), RegressionPose
+    ├── reweighting/               <- Dimension reweighting algorithms
+    └── scripts/                   <- Benchmark generator and utility scripts
+```
 
-#### Pose alignment
+## 📄 Citations
 
-The impact of pose alignment on the performance of the DeepPrint model was estimated by randomly changing the image pose with increasing magnitude of shifting and rotation:
+If you use this repository or any of the implemented models in your research, please cite the corresponding papers:
 
-![Results for varying poses](figures/pose-alignment-results.png)
-
-### Citation
-
-If you use this code in your research, please cite the following paper:
-
-```{bibtex}
-@inproceedings{
-    Rohwedder-FixedLengthFingerprintDNN-BIOSIG-2023,
+### DeepPrint & BIOSIG 2023 Benchmark
+```bibtex
+@inproceedings{Rohwedder-FixedLengthFingerprintDNN-BIOSIG-2023,
     author = {T. Rohwedder and D. Osorio-Roig and C. Rathgeb and C. Busch},
-    booktitle = {Intl. Conf. of the Biometrics Special Interest Group ({BIOSIG})},
-    keywords = {Fingerprint recognition, computational workload reduction},
-    month = {September},
-    publisher = {IEEE},
+    booktitle = {Intl. Conf. of the Biometrics Special Interest Group (BIOSIG)},
     title = {Benchmarking fixed-length Fingerprint Representations across different Embedding Sizes and Sensor Types},
-    year = {2023}
+    year = {2023},
+    publisher = {IEEE}
+}
+
+@article{engelsma2021deepprint,
+    author = {Engelsma, Joshua J. and Cao, Kai and Jain, Anil K.},
+    journal = {IEEE Transactions on Pattern Analysis and Machine Intelligence}, 
+    title = {Learning a Fixed-Length Fingerprint Representation}, 
+    year = {2021},
+    volume = {43},
+    number = {6},
+    pages = {1981-1997}
 }
 ```
+
+### FLARE Framework (TIFS 2026 / WIFS 2024)
+```bibtex
+@article{pan2025flare,
+    author = {Pan, Zhiyu and Guan, Xiongjun and Duan, Yongjie and Feng, Jianjiang and Zhou, Jie},
+    journal = {IEEE Transactions on Information Forensics and Security}, 
+    title = {Fixed-Length Dense Fingerprint Representation With Alignment and Robust Enhancement}, 
+    year = {2026},
+    volume = {21},
+    pages = {1751-1765}
+}
+
+@inproceedings{pan2024fdd,
+    author = {Pan, Zhiyu and Duan, Yongjie and Feng, Jianjiang and Zhou, Jie},
+    booktitle = {IEEE International Workshop on Information Forensics and Security (WIFS)}, 
+    title = {Fixed-length Dense Descriptor for Efficient Fingerprint Matching}, 
+    year = {2024},
+    pages = {1-6}
+}
+```
+
+## License & Acknowledgements
+
+* **DeepPrint modules**: Distributed under the project license in [LICENSE](LICENSE).
+* **FLARE & FLARE_ENH modules**: Released for **academic research and educational purposes only**. Commercial use is strictly prohibited.
+* Implementation credits:
+  * Remi Cadene: Inception v4 PyTorch implementation ([Cadene/pretrained-models.pytorch](https://github.com/Cadene/pretrained-models.pytorch))
+  * Dong Chengdong & Hang Zhou: ISO-19794-2 encoder/decoder ([DongChengdongHangZhou/iso-19794-2-decoder-encoder](https://github.com/DongChengdongHangZhou/iso-19794-2-decoder-encoder))
+  * Zhiyu Pan et al.: Original FLARE & FLARE_ENH implementations ([Yu-Yy/FLARE](https://github.com/Yu-Yy/FLARE), [Yu-Yy/FLARE_ENH](https://github.com/Yu-Yy/FLARE_ENH))

@@ -1,4 +1,6 @@
 from abc import abstractmethod
+from typing import Iterable
+import os
 
 import cv2
 import torch
@@ -135,3 +137,57 @@ class NistSD4Dataset(ImageLoader):
     def _load_image(filepath: str) -> torch.Tensor:
         img = cv2.imread(filepath, cv2.IMREAD_GRAYSCALE)
         return pad_and_resize_to_deepprint_input_size(img, fill=1.0)
+
+
+SUPPORTED_IMAGE_EXTENSIONS: tuple[str, ...] = (
+    ".tif",
+    ".tiff",
+    ".bmp",
+    ".jpg",
+    ".jpeg",
+    ".png",
+)
+
+
+class DirectoryImageLoader(ImageLoader):
+    """
+    Generic directory loader supporting flexible extensions (.tif, .png, .bmp, .jpg)
+    and parsing filenames of form <subject>_<impression>.
+    """
+    def __init__(
+        self,
+        root_dir: str,
+        extension: str | Iterable[str] | None = None,
+    ):
+        if extension is None:
+            self._ext = SUPPORTED_IMAGE_EXTENSIONS
+        elif isinstance(extension, str):
+            self._ext = extension if extension.startswith(".") else "." + extension
+        else:
+            self._ext = tuple(e if e.startswith(".") else "." + e for e in extension)
+        super().__init__(root_dir)
+
+    def _extension(self) -> str | tuple[str, ...]:
+        return getattr(self, "_ext", SUPPORTED_IMAGE_EXTENSIONS)
+
+    @staticmethod
+    def _file_to_id_fun(subdir: str, filename: str) -> Identifier | None:
+        base_name, _ = os.path.splitext(filename)
+        parts = base_name.split("_")
+        if len(parts) != 2:
+            return None
+        try:
+            subject_id = int(parts[0]) - 1
+            impression_id = int(parts[1]) - 1
+        except ValueError:
+            return None
+        return Identifier(subject_id, impression_id)
+
+    @staticmethod
+    def _load_image(filepath: str):
+        return cv2.imread(filepath, cv2.IMREAD_GRAYSCALE)
+
+
+DirectoryLoader = DirectoryImageLoader
+
+

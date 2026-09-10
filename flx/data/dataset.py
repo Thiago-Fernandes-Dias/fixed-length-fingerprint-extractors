@@ -19,9 +19,14 @@ class Identifier:
         return hash((self.subject, self.impression))
 
     def __eq__(self, other):
-        return hash(self) == hash(other)
+        if not isinstance(other, Identifier):
+            return False
+        return self.subject == other.subject and self.impression == other.impression
 
     def __str__(self) -> str:
+        return f"Identifier({self.subject}, {self.impression})"
+
+    def __repr__(self) -> str:
         return f"Identifier({self.subject}, {self.impression})"
 
     def __lt__(self, other: "Identifier"):
